@@ -430,8 +430,11 @@ function App() {
             )}
           </div>
         </div>
-        <div style={{ position: 'relative', flexShrink: 0 }}>
+        <div style={{ position: 'relative', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <img src="assets/mavuika-dance.gif" alt="Mavuika" style={{ width: 112, height: 112, display: 'block', position: 'relative', transform: `scale(${scale})`, transformOrigin: 'bottom center', transition: 'transform 0.2s' }} />
+          <a href="https://x.com/greentoko/status/1831841462839079241" target="_blank" rel="noopener noreferrer" style={{ fontSize: 9, color: '#0066cc', textDecoration: 'none', marginTop: 4, cursor: 'pointer' }}>
+            @GreenToko
+          </a>
         </div>
       </div>
 
