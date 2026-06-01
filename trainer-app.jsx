@@ -36,35 +36,50 @@ const SEQ = [
 function MouseOverlay({ pressed, bindings, listen, onRebind }) {
   const atkOn = pressed.atk, dashOn = pressed.dash;
   const atkListen = listen === 'attack', dashListen = listen === 'dash';
-  const ATK = '#ff7a18', DASH = '#ffc24a', INK = '#6e4a38';
+  const ATK = 'var(--text-primary)', DASH = 'var(--text-primary)', INK = 'var(--text-muted)';
   const LEFT = 'M14 68 L14 40 Q14 6 48 6 L50 6 L50 68 Z';
   const RIGHT = 'M50 68 L50 6 L52 6 Q86 6 86 40 L86 68 Z';
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
       <svg viewBox="0 0 100 152" width="92" style={{ display: 'block', overflow: 'visible' }}>
         {/* button fills */}
-        <path d={LEFT} fill={ATK} opacity={atkOn ? 0.92 : atkListen ? 0.3 : 0.07} style={{ transition: 'opacity 0.08s' }} />
-        <path d={RIGHT} fill={DASH} opacity={dashOn ? 0.92 : dashListen ? 0.3 : 0.07} style={{ transition: 'opacity 0.08s' }} />
+        <path d={LEFT} fill={ATK} opacity={atkOn ? 0.3 : atkListen ? 0.15 : 0.03} style={{ transition: 'opacity 0.08s' }} />
+        <path d={RIGHT} fill={DASH} opacity={dashOn ? 0.3 : dashListen ? 0.15 : 0.03} style={{ transition: 'opacity 0.08s' }} />
         {/* outline + dividers */}
-        <rect x="14" y="6" width="72" height="140" rx="34" ry="38" fill="none" stroke={INK} strokeWidth="2.5" />
-        <line x1="50" y1="6" x2="50" y2="68" stroke={INK} strokeWidth="2" />
-        <line x1="14" y1="68" x2="86" y2="68" stroke={INK} strokeWidth="2" />
-        <rect x="45" y="20" width="10" height="24" rx="5" fill="none" stroke={INK} strokeWidth="2" />
+        <rect x="14" y="6" width="72" height="140" rx="34" ry="38" fill="none" stroke={INK} strokeWidth="1.5" />
+        <line x1="50" y1="6" x2="50" y2="68" stroke={INK} strokeWidth="1.2" />
+        <line x1="14" y1="68" x2="86" y2="68" stroke={INK} strokeWidth="1.2" />
+        <rect x="45" y="20" width="10" height="24" rx="5" fill="none" stroke={INK} strokeWidth="1.2" />
         {/* hit areas for rebind */}
         <path d={LEFT} fill="transparent" style={{ cursor: 'pointer' }} onClick={() => onRebind('attack')} />
         <path d={RIGHT} fill="transparent" style={{ cursor: 'pointer' }} onClick={() => onRebind('dash')} />
       </svg>
-      <div style={{ display: 'flex', gap: 22, fontSize: 12 }}>
-        {[['attack', 'L', ATK, bindings.attack, atkListen], ['dash', 'R', DASH, bindings.dash, dashListen]].map(([id, lbl, c, code, lis]) => (
+      <BindingsMenu bindings={bindings} listen={listen} onRebind={onRebind} />
+    </div>
+  );
+}
+
+function BindingsMenu({ bindings, listen, onRebind }) {
+  const atkListen = listen === 'attack', dashListen = listen === 'dash';
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
+        {[['attack', 'ATTACK BIND', bindings.attack, atkListen], ['dash', 'DASH BIND', bindings.dash, dashListen]].map(([id, lbl, code, lis]) => (
           <button key={id} onClick={() => onRebind(id)} style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, width: 180,
+            background: lis ? 'var(--bg-secondary)' : 'var(--bg-card)', 
+            border: `1px solid ${lis ? 'var(--text-primary)' : 'var(--border-light)'}`, 
+            cursor: 'pointer', padding: '8px 12px', borderRadius: 4
           }}>
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: c }}>{lbl}</span>
-            <span style={{ fontSize: 12, color: lis ? c : 'var(--text-secondary)', fontWeight: lis ? 700 : 500, borderBottom: '1px dashed var(--border-light)', paddingBottom: 1 }}>
-              {lis ? 'press input…' : codeLabel(code)}
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-muted)' }}>{lbl}</span>
+            <span style={{ fontSize: 11, color: lis ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: lis ? 700 : 600 }}>
+              {lis ? '...' : codeLabel(code)}
             </span>
           </button>
         ))}
+      </div>
+      <div style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', maxWidth: 200, lineHeight: 1.4 }}>
+        * <b>Shift</b> and <b>Mouse Right</b> are interchangeable for Dash by default.
       </div>
     </div>
   );
@@ -216,7 +231,8 @@ function App() {
       const b = bindingsRef.current, run = runRef.current;
       const isAtkKey = (code === b.attack);
       const isDashKey = (code === b.dash) || 
-        ((b.dash === 'ShiftLeft' || b.dash === 'ShiftRight') && (code === 'ShiftLeft' || code === 'ShiftRight'));
+        ((b.dash === 'ShiftLeft' || b.dash === 'ShiftRight' || b.dash === 'M2') && 
+         (code === 'ShiftLeft' || code === 'ShiftRight' || code === 'M2'));
       
       if ((isAtkKey || isDashKey) && (code === 'Space' || code.startsWith('Arrow'))) e.preventDefault();
       if (isDown) {
@@ -232,18 +248,31 @@ function App() {
     };
     const kd = (e) => handle(e, true);
     const ku = (e) => handle(e, false);
+    const md = (e) => {
+      const stage = stageRef.current;
+      const isRebinding = !!listenRef.current;
+      const isClickingStage = stage && stage.contains(e.target);
+      
+      if (isRebinding || (runRef.current.running && isClickingStage)) {
+        e.preventDefault();
+        handle(e, true);
+      }
+    };
+    const mu = (e) => handle(e, false);
+    const cm = (e) => e.preventDefault();
+
     window.addEventListener('keydown', kd);
     window.addEventListener('keyup', ku);
-    const stage = stageRef.current;
-    const md = (e) => { e.preventDefault(); handle(e, true); };
-    const mu = (e) => { handle(e, false); };
-    const cm = (e) => e.preventDefault();
-    if (stage) { stage.addEventListener('mousedown', md); stage.addEventListener('contextmenu', cm); }
+    window.addEventListener('mousedown', md);
     window.addEventListener('mouseup', mu);
+    window.addEventListener('contextmenu', cm);
+
     return () => {
-      window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku);
+      window.removeEventListener('keydown', kd);
+      window.removeEventListener('keyup', ku);
+      window.removeEventListener('mousedown', md);
       window.removeEventListener('mouseup', mu);
-      if (stage) { stage.removeEventListener('mousedown', md); stage.removeEventListener('contextmenu', cm); }
+      window.removeEventListener('contextmenu', cm);
     };
   }, []);
 
