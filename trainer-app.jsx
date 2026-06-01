@@ -26,8 +26,8 @@ const SEQ = [
   { sym: '▲', side: 'L', dwell: 50 },
   { sym: '▼', side: 'L', dwell: 200 },
   { sym: '▼', side: 'R', dwell: 50 },
-  { sym: '▲', side: 'R', dwell: 1050 },
-  { sym: '▲', side: 'L', dwell: null },
+  { sym: '▲', side: 'R', dwell: 1020 },
+  { sym: '▲', side: 'L', dwell: 750 },
 ];
 
 /* ===============================================================

@@ -11,12 +11,12 @@ const { useState, useEffect, useRef, useCallback } = React;
    Hold B is the long one (waits out the spin charge) and its release
    is the Finisher (F). Times are ms-from-rep-start (user dwell data).
    --------------------------------------------------------------- */
-const REP_LEN = 2070; // includes ~400ms finisher+buffer before the loop
+const REP_LEN = 2390; // match macro loop length (1640) + 750ms finisher animation delay
 // Bars: charge holds (attack) + dash taps. start/end in model ms.
 const REP_BARS = [
   { lane: 'atk',  start: 0,   end: 320,  finisher: false },              // CD #1 charge
   { lane: 'dash', start: 200, end: 250 },                                // dash tap inside #1
-  { lane: 'atk',  start: 370, end: 1670, finisher: true },               // CD #2 -> long hold -> F
+  { lane: 'atk',  start: 370, end: 1640, finisher: true },               // CD #2 -> long hold -> F
   { lane: 'dash', start: 570, end: 620 },                                // dash tap inside #2
 ];
 // Flat event list (the things we grade), in time order.
@@ -28,7 +28,7 @@ const REP_EVENTS = [
   { action: 'atk-down', t: 370,  label: 'CHARGE' },
   { action: 'dash-down', t: 570, label: 'DASH' },
   { action: 'dash-up',  t: 620,  label: 'dash end' },
-  { action: 'atk-up',   t: 1670, label: 'FINISHER' },
+  { action: 'atk-up',   t: 1640, label: 'FINISHER' },
 ];
 
 const COMBO_NOTATION = 'CCDCDCF  2(CDCDCF)';
