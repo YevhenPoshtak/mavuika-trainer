@@ -141,5 +141,4 @@ h3 {
 .vlane-bar {
   box-shadow: none;
   font-family: var(--font-body);
-  transition: transform 0.03s linear, width 0.03s linear;
 }
