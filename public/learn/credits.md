@@ -1,8 +1,13 @@
 # Credits
 
 * **Website and Smuggling the combo from China**: @zsksc (Discord; [Youtube](https://www.youtube.com/@zsksc)) 
+
+* **Timing and Combo Discovery**: 
+  * Bilibili: [流眄呀](https://space.bilibili.com/407686733) ✮ 
+  * Bilibili: [eva935](https://space.bilibili.com/3461576111688003/) ✮
+
 * **Featured Tutorial**: @brickingitrn (Discord; [Youtube](https://www.youtube.com/channel/UCN1yJI75qoEvrhnBVP-FYxQ))
-* **Timing and Combo Discovery (maybe)**: Bilibili: [eva935](https://space.bilibili.com/3461576111688003/)
+* 
 * **General Help**: 
   * @Lego102Lego - Chinese smuggler
   * @kura - I steal his acount
