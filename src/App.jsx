@@ -1141,6 +1141,7 @@ export default function App() {
         />
       )}
 
+
       {/* GitHub Link (fixed far left, hidden when playing) */}
       <a
         href="https://github.com/zsksc-gen/mavuika-trainer"
@@ -1174,20 +1175,6 @@ export default function App() {
 
       {/* title */}
       <div style={{ textAlign: "center" }}>
-        <div
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: "0.5em",
-            color: "var(--text-muted)",
-            textTransform: "uppercase",
-            marginBottom: 2,
-            paddingLeft: "0.5em",
-          }}
-        >
-          Flamestrider Drill
-        </div>
         <h1
           style={{
             fontSize: 40,
@@ -1200,20 +1187,6 @@ export default function App() {
         >
           Mavuika Combo Trainer
         </h1>
-        <div
-          style={{
-            display: "inline-block",
-            marginTop: 10,
-            padding: "5px 18px",
-            border: "1px solid var(--border-light)",
-            fontFamily: "var(--font-display)",
-            fontSize: 17,
-            letterSpacing: "0.16em",
-            color: "var(--text-secondary)",
-          }}
-        >
-          {COMBO_NOTATION}
-        </div>
       </div>
 
       {/* combo selection buttons */}
@@ -1563,7 +1536,32 @@ export default function App() {
             />
           )}
 
-          {mobile && (
+          {mobile && running && !waitingForStart && (
+            <button
+              onClick={stop}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                padding: "12px 36px",
+                fontSize: 15,
+                fontWeight: 700,
+                cursor: "pointer",
+                fontFamily: "var(--font-display)",
+                textTransform: "uppercase",
+                letterSpacing: "0.14em",
+                background: "transparent",
+                color: "var(--severity-critical)",
+                border: "2px solid var(--severity-critical)",
+              }}
+            >
+              <StopIcon />
+              Stop
+            </button>
+          )}
+
+          {mobile && !(running && !waitingForStart) && (
             <div
               style={{
                 display: "flex",
@@ -1630,6 +1628,55 @@ export default function App() {
                   finished.
                 </div>
               )}
+            </div>
+          )}
+
+          {mobile && (
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => setSound((s) => !s)}
+                title={sound ? "Mute" : "Unmute"}
+                style={{
+                  width: 40,
+                  height: 40,
+                  border: "1px solid var(--border-light)",
+                  background: "var(--bg-secondary)",
+                  cursor: "pointer",
+                  color: sound ? "var(--text-primary)" : "var(--text-muted)",
+                  fontSize: 16,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 4,
+                }}
+              >
+                {sound ? "♪" : "✕"}
+              </button>
+              <button
+                onClick={() => setFreestyle((f) => !f)}
+                disabled={running && !waitingForStart}
+                title={freestyle ? "Toggle Rhythm Mode" : "Toggle Freestyle Mode"}
+                style={{
+                  border: "1px solid var(--border-light)",
+                  background: freestyle
+                    ? "var(--text-primary)"
+                    : "var(--bg-secondary)",
+                  color: freestyle ? "var(--bg-primary)" : "var(--text-secondary)",
+                  cursor: running && !waitingForStart ? "not-allowed" : "pointer",
+                  padding: "0 16px",
+                  height: 40,
+                  fontSize: 11,
+                  fontFamily: "var(--font-display)",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  transition: "all 0.15s",
+                  opacity: running && !waitingForStart ? 0.6 : 1,
+                  borderRadius: 4,
+                }}
+              >
+                {freestyle ? "Freestyle: ON" : "Freestyle: OFF"}
+              </button>
             </div>
           )}
         </div>
@@ -1755,38 +1802,39 @@ export default function App() {
         </div>
       </div>
 
-      {/* Start / Stop + Sound + Freestyle Controls (Restored at bottom) */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 14,
-          marginTop: 12,
-        }}
-      >
-        <button
-          onClick={running ? stop : start}
+      {/* Start/Stop + Sound + Freestyle (desktop only; mobile shows these in the input slot) */}
+      {!mobile && (
+        <div
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            gap: 10,
-            padding: "12px 36px",
-            fontSize: 15,
-            fontWeight: 700,
-            cursor: "pointer",
-            fontFamily: "var(--font-display)",
-            textTransform: "uppercase",
-            letterSpacing: "0.14em",
-            background: running ? "transparent" : "var(--text-primary)",
-            color: running ? "var(--severity-critical)" : "var(--bg-primary)",
-            border: `2px solid ${running ? "var(--severity-critical)" : "var(--text-primary)"}`,
+            gap: 14,
+            marginTop: 12,
           }}
         >
-          {running ? <StopIcon /> : <PlayIcon />}
-          {running ? "Stop" : "Ride"}
-        </button>
+          <button
+            onClick={running ? stop : start}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 10,
+              padding: "12px 36px",
+              fontSize: 15,
+              fontWeight: 700,
+              cursor: "pointer",
+              fontFamily: "var(--font-display)",
+              textTransform: "uppercase",
+              letterSpacing: "0.14em",
+              background: running ? "transparent" : "var(--text-primary)",
+              color: running ? "var(--severity-critical)" : "var(--bg-primary)",
+              border: `2px solid ${running ? "var(--severity-critical)" : "var(--text-primary)"}`,
+            }}
+          >
+            {running ? <StopIcon /> : <PlayIcon />}
+            {running ? "Stop" : "Ride"}
+          </button>
         <button
           onClick={() => setSound((s) => !s)}
           title={sound ? "Mute" : "Unmute"}
@@ -1831,7 +1879,8 @@ export default function App() {
         >
           {freestyle ? "Freestyle: ON" : "Freestyle: OFF"}
         </button>
-      </div>
+        </div>
+      )}
 
       {/* latest update info */}
       {latestPR && (
