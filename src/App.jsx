@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { VULCAN_CONFIG, COMBOS } from "./core/config";
 import { clamp, rawCode, codeLabel, loadStore, saveStore } from "./core/utils";
-import { GRADE_SOUND } from "./core/audio";
+import { GRADE_SOUND, blip } from "./core/audio";
 import { GRADE_COLOR, GRADE_TEXT } from "./core/tokens";
 import { PlayIcon, StopIcon } from "./components/Icons";
 import Speedometer from "./components/Speedometer";
 import Lane from "./components/Lane";
 import DynamicIsland from "./components/DynamicIsland";
 import { MouseOverlay, Stat } from "./components/MouseOverlay";
+import { TouchCluster, DEFAULT_TOUCH_POS } from "./components/TouchCluster";
 
 function AnalyticsReport({
   show,
@@ -363,6 +364,24 @@ export default function App() {
   const [bindings, setBindings] = useState(init.bindings);
   const [sound, setSound] = useState(init.settings.sound !== false);
   const [freestyle, setFreestyle] = useState(init.settings.freestyle === true);
+  const [mobile, setMobile] = useState(() =>
+    typeof init.settings.mobile === "boolean"
+      ? init.settings.mobile
+      : typeof window !== "undefined" &&
+        window.matchMedia &&
+        window.matchMedia("(pointer: coarse)").matches,
+  );
+  const [touchPos, setTouchPos] = useState(() => ({
+    ...DEFAULT_TOUCH_POS,
+    ...(init.settings.touchPos || {}),
+  }));
+  const [touchEditing, setTouchEditing] = useState(false);
+  const [touchScale, setTouchScale] = useState(() => {
+    const s = init.settings.touchScale;
+    if (s && typeof s === "object") return { atk: 1, dash: 1, ...s };
+    if (typeof s === "number") return { atk: s, dash: s }; // migrate old global
+    return { atk: 1, dash: 1 };
+  });
   const [waitingForStart, setWaitingForStart] = useState(false);
   const [running, setRunning] = useState(false);
   const [countdown, setCountdown] = useState(0);
@@ -547,8 +566,15 @@ export default function App() {
 
   useEffect(() => {
     soundRef.current = sound;
-    saveStore(bindings, { ...init.settings, sound, freestyle });
-  }, [sound, freestyle, bindings, init.settings]);
+    saveStore(bindings, {
+      ...init.settings,
+      sound,
+      freestyle,
+      mobile,
+      touchPos,
+      touchScale,
+    });
+  }, [sound, freestyle, mobile, touchPos, touchScale, bindings, init.settings]);
 
   useEffect(() => {
     listenRef.current = listen;
@@ -1052,6 +1078,34 @@ export default function App() {
   }, []);
 
   const onRebind = (id) => setListen((cur) => (cur === id ? null : id));
+
+  // Touch HUD -> same input model as keyboard/mouse path.
+  const handleTouch = (id, isDown) => {
+    const run = runRef.current;
+    if (isDown) {
+      if (id === "atk" && !run.atk) {
+        run.atk = true;
+        setPressed((p) => ({ ...p, atk: true }));
+        transition("atk-down");
+      } else if (id === "dash" && !run.dash) {
+        run.dash = true;
+        setPressed((p) => ({ ...p, dash: true }));
+        transition("dash-down");
+      }
+      if (navigator.vibrate) navigator.vibrate(8);
+      if (soundRef.current) blip(700, 0.03, 0.05, "sine");
+    } else {
+      if (id === "atk" && run.atk && !run.gpAtkPressed) {
+        run.atk = false;
+        setPressed((p) => ({ ...p, atk: false }));
+        transition("atk-up");
+      } else if (id === "dash" && run.dash && !run.gpDashPressed) {
+        run.dash = false;
+        setPressed((p) => ({ ...p, dash: false }));
+        transition("dash-up");
+      }
+    }
+  };
   const scale = 1 + clamp(speed / SPEED_MAX, 0, 1) * 0.16;
   const lc = last ? GRADE_COLOR[last.grade] : "transparent";
   const showDelta =
@@ -1063,13 +1117,30 @@ export default function App() {
       style={{
         maxWidth: 880,
         margin: "0 auto",
-        padding: "26px 24px 56px",
+        padding: mobile ? "26px 24px 34vh" : "26px 24px 56px",
         display: "flex",
         flexDirection: "column",
         gap: 24,
       }}
     >
       <DynamicIsland running={running && !waitingForStart} />
+
+      {mobile && (
+        <TouchCluster
+          pressed={pressed}
+          onDown={(id) => handleTouch(id, true)}
+          onUp={(id) => handleTouch(id, false)}
+          onExit={() => setMobile(false)}
+          positions={touchPos}
+          editing={touchEditing}
+          onMove={(id, frac) => setTouchPos((p) => ({ ...p, [id]: frac }))}
+          userScale={touchScale}
+          onScale={(id, val) =>
+            setTouchScale((p) => ({ ...p, [id]: val }))
+          }
+        />
+      )}
+
 
       {/* GitHub Link (fixed far left, hidden when playing) */}
       <a
@@ -1104,20 +1175,6 @@ export default function App() {
 
       {/* title */}
       <div style={{ textAlign: "center" }}>
-        <div
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: "0.5em",
-            color: "var(--text-muted)",
-            textTransform: "uppercase",
-            marginBottom: 2,
-            paddingLeft: "0.5em",
-          }}
-        >
-          Flamestrider Drill
-        </div>
         <h1
           style={{
             fontSize: 40,
@@ -1130,20 +1187,6 @@ export default function App() {
         >
           Mavuika Combo Trainer
         </h1>
-        <div
-          style={{
-            display: "inline-block",
-            marginTop: 10,
-            padding: "5px 18px",
-            border: "1px solid var(--border-light)",
-            fontFamily: "var(--font-display)",
-            fontSize: 17,
-            letterSpacing: "0.16em",
-            color: "var(--text-secondary)",
-          }}
-        >
-          {COMBO_NOTATION}
-        </div>
       </div>
 
       {/* combo selection buttons */}
@@ -1439,14 +1482,204 @@ export default function App() {
           marginTop: 8,
         }}
       >
-        {/* Left: Interactive Input Visuals */}
-        <MouseOverlay
-          pressed={pressed}
-          bindings={bindings}
-          listen={listen}
-          onRebind={onRebind}
-          gamepadConnected={gamepadConnected}
-        />
+        {/* Left: Interactive Input Visuals + input-mode switch */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <div
+            style={{
+              display: "inline-flex",
+              border: "1px solid var(--border-light)",
+              borderRadius: 6,
+              overflow: "hidden",
+            }}
+          >
+            {[
+              ["kbm", "🖥 KBM/Controller", false],
+              ["touch", "✋ Mobile", true],
+            ].map(([key, lbl, val]) => {
+              const on = mobile === val;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setMobile(val)}
+                  style={{
+                    background: on ? "var(--text-primary)" : "var(--bg-card)",
+                    color: on ? "var(--bg-primary)" : "var(--text-secondary)",
+                    border: "none",
+                    padding: "6px 12px",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    cursor: "pointer",
+                  }}
+                >
+                  {lbl}
+                </button>
+              );
+            })}
+          </div>
+
+          {!mobile && (
+            <MouseOverlay
+              pressed={pressed}
+              bindings={bindings}
+              listen={listen}
+              onRebind={onRebind}
+              gamepadConnected={gamepadConnected}
+            />
+          )}
+
+          {mobile && running && !waitingForStart && (
+            <button
+              onClick={stop}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                padding: "12px 36px",
+                fontSize: 15,
+                fontWeight: 700,
+                cursor: "pointer",
+                fontFamily: "var(--font-display)",
+                textTransform: "uppercase",
+                letterSpacing: "0.14em",
+                background: "transparent",
+                color: "var(--severity-critical)",
+                border: "2px solid var(--severity-critical)",
+              }}
+            >
+              <StopIcon />
+              Stop
+            </button>
+          )}
+
+          {mobile && !(running && !waitingForStart) && (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 6,
+                position: "relative",
+                zIndex: touchEditing ? 9600 : "auto",
+              }}
+            >
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => setTouchEditing((e) => !e)}
+                  style={{
+                    background: touchEditing
+                      ? "var(--severity-critical)"
+                      : "var(--bg-card)",
+                    color: touchEditing ? "#fff" : "var(--text-secondary)",
+                    border: "1px solid var(--border-light)",
+                    padding: "6px 12px",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    cursor: "pointer",
+                    borderRadius: 6,
+                  }}
+                >
+                  {touchEditing ? "Done" : "Move buttons"}
+                </button>
+                <button
+                  onClick={() => {
+                    setTouchPos({ ...DEFAULT_TOUCH_POS });
+                    setTouchScale({ atk: 1, dash: 1 });
+                  }}
+                  title="Reset button positions & size"
+                  style={{
+                    background: "var(--bg-card)",
+                    color: "var(--text-muted)",
+                    border: "1px solid var(--border-light)",
+                    padding: "6px 12px",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    cursor: "pointer",
+                    borderRadius: 6,
+                  }}
+                >
+                  Reset
+                </button>
+              </div>
+              {touchEditing && (
+                <div
+                  style={{
+                    fontSize: 9,
+                    color: "var(--text-muted)",
+                    textAlign: "center",
+                    maxWidth: 150,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  Drag to move · pinch to resize.<br></br> Tap Done when
+                  finished.
+                </div>
+              )}
+            </div>
+          )}
+
+          {mobile && (
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => setSound((s) => !s)}
+                title={sound ? "Mute" : "Unmute"}
+                style={{
+                  width: 40,
+                  height: 40,
+                  border: "1px solid var(--border-light)",
+                  background: "var(--bg-secondary)",
+                  cursor: "pointer",
+                  color: sound ? "var(--text-primary)" : "var(--text-muted)",
+                  fontSize: 16,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 4,
+                }}
+              >
+                {sound ? "♪" : "✕"}
+              </button>
+              <button
+                onClick={() => setFreestyle((f) => !f)}
+                disabled={running && !waitingForStart}
+                title={freestyle ? "Toggle Rhythm Mode" : "Toggle Freestyle Mode"}
+                style={{
+                  border: "1px solid var(--border-light)",
+                  background: freestyle
+                    ? "var(--text-primary)"
+                    : "var(--bg-secondary)",
+                  color: freestyle ? "var(--bg-primary)" : "var(--text-secondary)",
+                  cursor: running && !waitingForStart ? "not-allowed" : "pointer",
+                  padding: "0 16px",
+                  height: 40,
+                  fontSize: 11,
+                  fontFamily: "var(--font-display)",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  transition: "all 0.15s",
+                  opacity: running && !waitingForStart ? 0.6 : 1,
+                  borderRadius: 4,
+                }}
+              >
+                {freestyle ? "Freestyle: ON" : "Freestyle: OFF"}
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Center: Speedometer & Readout */}
         <div style={{ width: 260, maxWidth: "100%", position: "relative" }}>
@@ -1569,38 +1802,39 @@ export default function App() {
         </div>
       </div>
 
-      {/* Start / Stop + Sound + Freestyle Controls (Restored at bottom) */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 14,
-          marginTop: 12,
-        }}
-      >
-        <button
-          onClick={running ? stop : start}
+      {/* Start/Stop + Sound + Freestyle (desktop only; mobile shows these in the input slot) */}
+      {!mobile && (
+        <div
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            gap: 10,
-            padding: "12px 36px",
-            fontSize: 15,
-            fontWeight: 700,
-            cursor: "pointer",
-            fontFamily: "var(--font-display)",
-            textTransform: "uppercase",
-            letterSpacing: "0.14em",
-            background: running ? "transparent" : "var(--text-primary)",
-            color: running ? "var(--severity-critical)" : "var(--bg-primary)",
-            border: `2px solid ${running ? "var(--severity-critical)" : "var(--text-primary)"}`,
+            gap: 14,
+            marginTop: 12,
           }}
         >
-          {running ? <StopIcon /> : <PlayIcon />}
-          {running ? "Stop" : "Ride"}
-        </button>
+          <button
+            onClick={running ? stop : start}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 10,
+              padding: "12px 36px",
+              fontSize: 15,
+              fontWeight: 700,
+              cursor: "pointer",
+              fontFamily: "var(--font-display)",
+              textTransform: "uppercase",
+              letterSpacing: "0.14em",
+              background: running ? "transparent" : "var(--text-primary)",
+              color: running ? "var(--severity-critical)" : "var(--bg-primary)",
+              border: `2px solid ${running ? "var(--severity-critical)" : "var(--text-primary)"}`,
+            }}
+          >
+            {running ? <StopIcon /> : <PlayIcon />}
+            {running ? "Stop" : "Ride"}
+          </button>
         <button
           onClick={() => setSound((s) => !s)}
           title={sound ? "Mute" : "Unmute"}
@@ -1645,7 +1879,8 @@ export default function App() {
         >
           {freestyle ? "Freestyle: ON" : "Freestyle: OFF"}
         </button>
-      </div>
+        </div>
+      )}
 
       {/* latest update info */}
       {latestPR && (
