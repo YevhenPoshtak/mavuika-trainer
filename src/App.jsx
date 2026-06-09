@@ -9,6 +9,10 @@ import Lane from "./components/Lane";
 import DynamicIsland from "./components/DynamicIsland";
 import { MouseOverlay, Stat } from "./components/MouseOverlay";
 import { TouchCluster, DEFAULT_TOUCH_POS } from "./components/TouchCluster";
+import { installFakePad } from "./core/fakePad";
+
+// Dev-only: simulate a controller when the page is loaded with ?fakepad=1
+installFakePad();
 
 function AnalyticsReport({
   show,
