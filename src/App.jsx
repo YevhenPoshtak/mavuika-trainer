@@ -14,6 +14,15 @@ import { installFakePad } from "./core/fakePad";
 // Dev-only: simulate a controller when the page is loaded with ?fakepad=1
 installFakePad();
 
+// Friendly names for each combo step (event action -> label)
+const ACTION_LABEL = {
+  "atk-down": "Attack",
+  "atk-up": "A-Release",
+  "dash-down": "Dash",
+  "dash-up": "D-Release",
+};
+const ACTION_ORDER = ["atk-down", "atk-up", "dash-down", "dash-up"];
+
 function AnalyticsReport({
   show,
   onClose,
@@ -22,7 +31,25 @@ function AnalyticsReport({
   speedMax,
   redline,
 }) {
+  const [verbose, setVerbose] = useState(false);
   if (!show) return null;
+
+  // Per-step breakdown for verbose stats (Attack / A-Release / Dash / D-Release)
+  const byAction = {};
+  gradesLog.forEach((entry) => {
+    if (!entry.action) return;
+    const a = (byAction[entry.action] = byAction[entry.action] || {
+      total: 0,
+      perfect: 0,
+      good: 0,
+      early: 0,
+      late: 0,
+      miss: 0,
+      wrong: 0,
+    });
+    a.total += 1;
+    a[entry.grade] = (a[entry.grade] || 0) + 1;
+  });
 
   const totalHits = gradesLog.length;
   const gradeCounts = gradesLog.reduce(
@@ -339,6 +366,140 @@ function AnalyticsReport({
           </div>
         </div>
 
+        {/* Verbose per-step statistics */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <button
+            onClick={() => setVerbose((v) => !v)}
+            style={{
+              alignSelf: "flex-start",
+              background: "var(--bg-secondary)",
+              border: "1px solid var(--border-light)",
+              borderRadius: 6,
+              padding: "6px 12px",
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "var(--text-primary)",
+              cursor: "pointer",
+            }}
+          >
+            {verbose ? "Hide" : "Show"} Verbose Stats
+          </button>
+          {verbose && (
+            <div
+              style={{
+                border: "1px solid var(--border-light)",
+                borderRadius: 8,
+                overflow: "hidden",
+              }}
+            >
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  fontSize: 11,
+                }}
+              >
+                <thead>
+                  <tr
+                    style={{
+                      background: "var(--bg-secondary)",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    {[
+                      "Step",
+                      "Hits",
+                      "Perfect",
+                      "Good",
+                      "Early",
+                      "Late",
+                      "Miss",
+                      "Wrong",
+                    ].map((h, i) => (
+                      <th
+                        key={h}
+                        style={{
+                          padding: "6px 8px",
+                          textAlign: i === 0 ? "left" : "center",
+                          fontWeight: 700,
+                          letterSpacing: "0.04em",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {ACTION_ORDER.filter((a) => byAction[a]).map((a) => {
+                    const s = byAction[a];
+                    const cell = (val, key) => (
+                      <td
+                        style={{
+                          padding: "6px 8px",
+                          textAlign: "center",
+                          fontWeight: 600,
+                          color: val
+                            ? GRADE_COLOR[key] || "var(--text-primary)"
+                            : "var(--text-muted)",
+                        }}
+                      >
+                        {val || "—"}
+                      </td>
+                    );
+                    return (
+                      <tr
+                        key={a}
+                        style={{ borderTop: "1px solid var(--border-subtle)" }}
+                      >
+                        <td
+                          style={{
+                            padding: "6px 8px",
+                            fontWeight: 700,
+                            color: "var(--text-primary)",
+                          }}
+                        >
+                          {ACTION_LABEL[a]}
+                        </td>
+                        <td
+                          style={{
+                            padding: "6px 8px",
+                            textAlign: "center",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {s.total}
+                        </td>
+                        {cell(s.perfect, "perfect")}
+                        {cell(s.good, "good")}
+                        {cell(s.early, "early")}
+                        {cell(s.late, "late")}
+                        {cell(s.miss, "miss")}
+                        {cell(s.wrong, "wrong")}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {totalHits === 0 && (
+                <div
+                  style={{
+                    padding: 12,
+                    textAlign: "center",
+                    color: "var(--text-muted)",
+                    fontSize: 11,
+                  }}
+                >
+                  No data recorded.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <button
           onClick={onClose}
           style={{
@@ -642,11 +803,11 @@ export default function App() {
     }
   };
 
-  const grade = (g, delta) => {
+  const grade = (g, delta, action) => {
     const run = runRef.current;
     run.speed = clamp(run.speed + (SPEED_DELTA[g] || 0), 0, SPEED_MAX);
     const ts = performance.now();
-    lastRef.current = { grade: g, delta, ts };
+    lastRef.current = { grade: g, delta, ts, action };
     // momentum streak: clean hits build it, mistakes break it
     if (g === "perfect" || g === "good") streakRef.current += 1;
     else streakRef.current = 0;
@@ -664,6 +825,7 @@ export default function App() {
       grade: g,
       delta,
       ts,
+      action,
     };
     setGrades((prev) => [...prev, newGrade]);
 
@@ -674,6 +836,7 @@ export default function App() {
         grade: g,
         delta,
         ts,
+        action,
       });
     }
   };
@@ -734,10 +897,10 @@ export default function App() {
         }
       }
 
-      grade(g, delta);
+      grade(g, delta, ev.action);
       run.nextIdx++;
     } else {
-      grade("wrong", 0);
+      grade("wrong", 0, ev.action);
     }
   };
 
@@ -877,7 +1040,7 @@ export default function App() {
                 goodWindow += 70;
               }
               if (now > ev.t / RATE + goodWindow + 70) {
-                grade("miss", 0);
+                grade("miss", 0, ev.action);
                 run.nextIdx++;
               } else {
                 break;
@@ -1723,6 +1886,7 @@ export default function App() {
             {grades.slice(-4).map((item) => {
               const color = GRADE_COLOR[item.grade];
               const text = GRADE_TEXT[item.grade];
+              const stepLabel = ACTION_LABEL[item.action];
               const showMs = ["perfect", "good", "early", "late"].includes(
                 item.grade,
               );
@@ -1752,6 +1916,11 @@ export default function App() {
                       backgroundColor: color,
                     }}
                   />
+                  {stepLabel && (
+                    <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>
+                      {stepLabel}
+                    </span>
+                  )}
                   <span>
                     {text}
                     {msText}
